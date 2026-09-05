@@ -44,6 +44,10 @@ on:
         required: false
         default: false
         type: boolean
+      WRT_SSH:
+        required: false
+        default: false
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -59,6 +63,7 @@ env:
   WRT_SOURCE: ${{inputs.WRT_SOURCE}}
   WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
   WRT_TEST: ${{inputs.WRT_TEST}}
+  WRT_SSH: ${{inputs.WRT_SSH}}
 
 jobs:
   core:
@@ -95,14 +100,14 @@ jobs:
         run: |
           WRT_TARGET=$(grep -m 1 -oP '^CONFIG_TARGET_\K[\w]+(?=\=y)' "./Config/$WRT_CONFIG.txt")
           WRT_SUBTARGET=$(grep -m 1 -oP "^CONFIG_TARGET_${WRT_TARGET}_\K[\w]+(?=\=y)" "./Config/$WRT_CONFIG.txt")
-          WRT_CACHE_SOURCE=${WRT_SOURCE//\//-}
-          WRT_CACHE_BRANCH=${WRT_BRANCH//\//-}
+          WRT_CACHE_SOURCE=${WRT_SOURCE//\//\-}
+          WRT_CACHE_BRANCH=${WRT_BRANCH//\//\-}
           WRT_CACHE_TARGET="$WRT_TARGET-$WRT_SUBTARGET"
           WRT_CACHE_PREFIX="wrt-$WRT_CACHE_SOURCE-$WRT_CACHE_BRANCH-$WRT_CACHE_TARGET"
 
           {
             echo "WRT_INFO=${WRT_SOURCE%%/*}"
-            echo "WRT_DATE=$(TZ=UTC-8 date +"%y.%m.%d-%H.%M.%S")"
+            echo "WRT_DATE=$(TZ=UTC-8 date +\"%y.%m.%d-%H.%M.%S\")"
             echo "WRT_MARK=${GITHUB_REPOSITORY%%/*}"
             echo "WRT_TARGET=$WRT_TARGET"
             echo "WRT_SUBTARGET=$WRT_SUBTARGET"
@@ -185,6 +190,10 @@ jobs:
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
+      - name: Start SSH via tmate
+        uses: P3TERX/ssh2actions@main
+        if: (env.WRT_SSH == 'true' && env.WRT_SSH != 'false') || contains(github.event.action, 'ssh')
+
       - name: Download Packages
         if: ${{ !inputs.WRT_TEST }}
         run: |
@@ -228,14 +237,14 @@ jobs:
           cp -f ./.config ./upload/Config-"$WRT_CONFIG"-"$WRT_INFO"-"$WRT_BRANCH"-"$WRT_DATE".txt
 
           if [[ "$WRT_TEST" != 'true' ]]; then
-            echo "WRT_KVER=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^kernel - \K[\d\.]+' {} \;)" >> $GITHUB_ENV
-            echo "WRT_LIST=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^luci-(app|theme)[^ ]*' {} \; | tr '\n' ' ')" >> $GITHUB_ENV
+            echo "WRT_KVER=$(find ./bin/targets/ -type f -name \"*.manifest\" -exec grep -oP '^kernel - \K[\d\.]+' {} \;)" >> $GITHUB_ENV
+            echo "WRT_LIST=$(find ./bin/targets/ -type f -name \"*.manifest\" -exec grep -oP '^luci-(app|theme)[^ ]*' {} \; | tr '\n' ' ')" >> $GITHUB_ENV
 
             find ./bin/targets/ -iregex ".*\(buildinfo\|json\|sha256sums\|packages\)$" -exec rm -rf {} +
 
-            for FILE in $(find ./bin/targets/ -type f -iname "*$WRT_TARGET*") ; do
+            for FILE in $(find ./bin/targets/ -type f -iname \"*$WRT_TARGET*\") ; do
               EXT=$(basename $FILE | cut -d '.' -f 2-)
-              NAME=$(basename $FILE | cut -d '.' -f 1 | grep -io "\($WRT_TARGET\).*")
+              NAME=$(basename $FILE | cut -d '.' -f 1 | grep -io \"($WRT_TARGET).*\")
               NEW_FILE="$NAME"-"$WRT_INFO"-"$WRT_BRANCH"-"$WRT_WIFI"-"$WRT_DATE"."$EXT"
               mv -f $FILE ./upload/$NEW_FILE
             done
