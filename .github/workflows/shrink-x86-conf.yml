@@ -111,6 +111,8 @@ jobs:
           CFG="$CI_DIR/Config"
           SRC="$CFG/${CONFIG_NAME}.txt"
           SETTINGS="$CI_DIR/Scripts/Settings.sh"
+          
+          chmod +x "$CI_DIR/Scripts/gh-down.sh"
 
           [ -f "$SRC" ] || { echo "::error::找不到 $SRC"; exit 1; }
           ORIG_LINES=$(wc -l < "$SRC")
