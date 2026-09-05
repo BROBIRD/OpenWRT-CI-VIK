@@ -63,7 +63,7 @@ env:
   WRT_DATE: '2026.09.05'
   WRT_CONFIG: ${{ github.event.inputs.config_name }}
   CI_DIR: ${{ github.workspace }}/ci
-  WRT_DIR: ${{ github.workspace }}/wrt
+  WRT_DIR: ${{ github.workspace }}/ci/wrt
 
 jobs:
   shrink:
@@ -100,6 +100,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$WRT_DIR/package"
+          chmod +x "$CI_DIR/Scripts/gh-down.sh"
           GITHUB_WORKSPACE="$CI_DIR" bash "$CI_DIR/Scripts/Packages.sh"
           GITHUB_WORKSPACE="$CI_DIR" bash "$CI_DIR/Scripts/Handles.sh"
 
@@ -112,7 +113,6 @@ jobs:
           SRC="$CFG/${CONFIG_NAME}.txt"
           SETTINGS="$CI_DIR/Scripts/Settings.sh"
           
-          chmod +x "$CI_DIR/Scripts/gh-down.sh"
 
           [ -f "$SRC" ] || { echo "::error::找不到 $SRC"; exit 1; }
           ORIG_LINES=$(wc -l < "$SRC")
