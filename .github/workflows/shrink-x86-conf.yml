@@ -61,6 +61,9 @@ env:
   WRT_WORD: '12345678'
   WRT_MARK: 'VIK'
   WRT_DATE: '2026.09.05'
+  WRT_CONFIG: ${{ github.event.inputs.config_name }}
+  CI_DIR: ${{ github.workspace }}/ci
+  WRT_DIR: ${{ github.workspace }}/wrt
 
 jobs:
   shrink:
@@ -76,17 +79,16 @@ jobs:
             gettext unzip zlib1g-dev wget curl file gawk coreutils perl
           sudo rm -rf /var/lib/apt/lists/*
 
-      - name: Checkout CI repo
+      - name: Clone CI repo (contains Config/ and Scripts/)
         run: |
           git clone --depth=1 --single-branch --branch "${{ github.event.inputs.ci_branch }}" \
-            "${{ github.event.inputs.ci_repo }}" ci
-          echo "GITHUB_WORKSPACE=$PWD/ci" >> "$GITHUB_ENV"
+            "${{ github.event.inputs.ci_repo }}" "$CI_DIR"
 
       - name: Clone lede & install feeds
         run: |
           git clone --depth=1 --single-branch --branch "${{ github.event.inputs.lede_branch }}" \
-            "${{ github.event.inputs.lede_repo }}" wrt
-          cd wrt
+            "${{ github.event.inputs.lede_repo }}" "$WRT_DIR"
+          cd "$WRT_DIR"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
@@ -95,9 +97,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          cd "$PWD/wrt"
-          CFG="$GITHUB_WORKSPACE/Config"
+          cd "$WRT_DIR"
+          CFG="$CI_DIR/Config"
           SRC="$CFG/${CONFIG_NAME}.txt"
+          SETTINGS="$CI_DIR/Scripts/Settings.sh"
 
           [ -f "$SRC" ] || { echo "::error::找不到 $SRC"; exit 1; }
           ORIG_LINES=$(wc -l < "$SRC")
@@ -105,7 +108,7 @@ jobs:
 
           # ---------- 1) FULL：原 X86 + GENERAL + Settings -> 完整 .config ----------
           cat "$SRC" "$CFG/GENERAL.txt" > .config
-          "$GITHUB_WORKSPACE/Scripts/Settings.sh"
+          GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
           make defconfig
           cp .config /tmp/FULL.config
           mkdir -p tmp
@@ -113,7 +116,7 @@ jobs:
 
           # ---------- 2) BASE：仅 GENERAL + Settings（空 X86）-> 基线种子 ----------
           cat "$CFG/GENERAL.txt" > .config
-          "$GITHUB_WORKSPACE/Scripts/Settings.sh"
+          GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
           make defconfig
           ./scripts/diffconfig.sh > /tmp/BASE.diff
 
@@ -125,7 +128,7 @@ jobs:
 
           # ---------- 4) 校验：用最小种子重建并逐字节比对 ----------
           cat /tmp/X86.mini "$CFG/GENERAL.txt" > .config
-          "$GITHUB_WORKSPACE/Scripts/Settings.sh"
+          GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
           make defconfig
           if ! cmp -s .config /tmp/FULL.config; then
             echo "::error::校验失败：缩减后 make defconfig 结果与原配置不一致，已终止，未覆盖文件。"
@@ -146,4 +149,3 @@ jobs:
           name: ${{ github.event.inputs.config_name }}-minimized
           path: /tmp/${{ github.event.inputs.config_name }}.mini.txt
           if-no-files-found: warn
-
