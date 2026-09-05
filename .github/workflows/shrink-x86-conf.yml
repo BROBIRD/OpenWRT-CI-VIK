@@ -92,12 +92,22 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      # 准备源码树：Packages.sh + Handles.sh 只改源码树（包目录/Makefile/内核补丁），不改 .config，
+      # 且内含多次 git clone，不能重复跑 —— 故只在此准备一次。
+      - name: Custom Packages (prepare source tree, mirrors WRT-CORE "Custom Packages")
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$WRT_DIR/package"
+          GITHUB_WORKSPACE="$CI_DIR" bash "$CI_DIR/Scripts/Packages.sh"
+          GITHUB_WORKSPACE="$CI_DIR" bash "$CI_DIR/Scripts/Handles.sh"
+
       - name: Reconstruct, diffconfig, subtract & validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          cd "$WRT_DIR"
           CFG="$CI_DIR/Config"
           SRC="$CFG/${CONFIG_NAME}.txt"
           SETTINGS="$CI_DIR/Scripts/Settings.sh"
@@ -106,19 +116,27 @@ jobs:
           ORIG_LINES=$(wc -l < "$SRC")
           echo "原始 $CONFIG_NAME.txt 行数: $ORIG_LINES"
 
+          # 重建函数：seed -> .config -> Settings.sh -> make defconfig（与 WRT-CORE "Custom Settings" 一致）
+          build() {
+            local seed="$1"
+            cd "$WRT_DIR"
+            cp "$seed" .config
+            GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
+            make defconfig
+          }
+
+          # ---------- 种子文件 ----------
+          cat "$SRC" "$CFG/GENERAL.txt" > /tmp/full.seed      # 原 X86 + GENERAL
+          cp  "$CFG/GENERAL.txt"      /tmp/base.seed          # 仅 GENERAL（空 X86，作为基线）
+
           # ---------- 1) FULL：原 X86 + GENERAL + Settings -> 完整 .config ----------
-          cat "$SRC" "$CFG/GENERAL.txt" > .config
-          GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
-          make defconfig
-          cp .config /tmp/FULL.config
-          mkdir -p tmp
-          ./scripts/diffconfig.sh > /tmp/FULL.diff
+          build /tmp/full.seed
+          cp "$WRT_DIR/.config" /tmp/FULL.config
+          ( cd "$WRT_DIR" && ./scripts/diffconfig.sh ) > /tmp/FULL.diff
 
           # ---------- 2) BASE：仅 GENERAL + Settings（空 X86）-> 基线种子 ----------
-          cat "$CFG/GENERAL.txt" > .config
-          GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
-          make defconfig
-          ./scripts/diffconfig.sh > /tmp/BASE.diff
+          build /tmp/base.seed
+          ( cd "$WRT_DIR" && ./scripts/diffconfig.sh ) > /tmp/BASE.diff
 
           # ---------- 3) 整机最小种子 减去 基线 -> 只属于 X86 的最小集 ----------
           grep -vxF -f /tmp/BASE.diff /tmp/FULL.diff > /tmp/X86.mini
@@ -127,12 +145,11 @@ jobs:
           echo "FULL.diff 行数: $(wc -l < /tmp/FULL.diff) | BASE.diff 行数: $(wc -l < /tmp/BASE.diff)"
 
           # ---------- 4) 校验：用最小种子重建并逐字节比对 ----------
-          cat /tmp/X86.mini "$CFG/GENERAL.txt" > .config
-          GITHUB_WORKSPACE="$CI_DIR" bash "$SETTINGS"
-          make defconfig
-          if ! cmp -s .config /tmp/FULL.config; then
+          cat /tmp/X86.mini "$CFG/GENERAL.txt" > /tmp/validate.seed
+          build /tmp/validate.seed
+          if ! cmp -s "$WRT_DIR/.config" /tmp/FULL.config; then
             echo "::error::校验失败：缩减后 make defconfig 结果与原配置不一致，已终止，未覆盖文件。"
-            diff -u /tmp/FULL.config .config | head -60 || true
+            diff -u /tmp/FULL.config "$WRT_DIR/.config" | head -60 || true
             exit 1
           fi
           echo "::notice::校验通过：缩减后 make defconfig 与原配置逐字节一致。"
