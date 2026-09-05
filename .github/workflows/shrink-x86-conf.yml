@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: MIT
+# 单文件工作流：在 GitHub 官方 ubuntu-slim runner 上把 X86-WIFI-NO.txt 缩减为最小种子，
+# 并保证 make defconfig 后得到与原文件完全一致的最终配置。
+#
+# 原理（与你的实际 CI WRT-CORE.yml 第 194-206 行完全一致）：
+#   cat Config/X86-WIFI-NO.txt Config/GENERAL.txt >> .config
+#   ./Scripts/Settings.sh
+#   make defconfig
+# make defconfig 会补全默认值并自动选中依赖，所以种子里只需保留"与默认不同的选择"。
+# 本工作流借助 lede 自带 scripts/diffconfig.sh 求整机最小种子，再减去
+# GENERAL.txt + Settings.sh 已贡献的部分，得到只属于 X86-WIFI-NO.txt 的最小集，
+# 最后重新 make defconfig 与原配置逐字节 cmp 校验，不一致则直接失败、不覆盖。
+
+name: Shrink X86 Config (Single-File)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ci_repo:
+        description: '你的 CI 仓库（含 Config/ 与 Scripts/）'
+        required: false
+        default: 'https://github.com/BROBIRD/OpenWRT-CI-VIK'
+      ci_branch:
+        description: 'CI 仓库分支'
+        required: false
+        default: 'migrate-x86-lede'
+      lede_repo:
+        description: 'lede 源码仓库'
+        required: false
+        default: 'https://github.com/coolsnowwolf/lede'
+      lede_branch:
+        description: 'lede 分支（务必与你的实际构建分支一致，否则符号集可能偏差）'
+        required: false
+        default: 'master'
+      config_name:
+        description: '要缩减的 Config 文件名（不含 .txt）'
+        required: false
+        default: 'X86-WIFI-NO'
+      theme:
+        description: 'LuCI 主题（对应 WRT_THEME）'
+        required: false
+        default: 'argon'
+      extra_packages:
+        description: '追加的自定义包（对应 WRT_PACKAGE，多行用换行分隔）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+  CONFIG_NAME: ${{ github.event.inputs.config_name }}
+  WRT_THEME: ${{ github.event.inputs.theme }}
+  WRT_PACKAGE: ${{ github.event.inputs.extra_packages }}
+  # 以下为 Settings.sh 需要的占位变量，仅影响 base-files 源文件，不影响 .config 等价性。
+  # 固定取值以保证两次构建（FULL / BASE）对源码树的 sed 幂等。
+  WRT_IP: '192.168.1.1'
+  WRT_NAME: 'OpenWrt'
+  WRT_SSID: 'OpenWrt'
+  WRT_WORD: '12345678'
+  WRT_MARK: 'VIK'
+  WRT_DATE: '2026.09.05'
+
+jobs:
+  shrink:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git ca-certificates build-essential bison flex \
+            libncurses-dev libssl-dev python3 python3-distutils \
+            gettext unzip zlib1g-dev wget curl file gawk coreutils perl
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout CI repo
+        run: |
+          git clone --depth=1 --single-branch --branch "${{ github.event.inputs.ci_branch }}" \
+            "${{ github.event.inputs.ci_repo }}" ci
+          echo "GITHUB_WORKSPACE=$PWD/ci" >> "$GITHUB_ENV"
+
+      - name: Clone lede & install feeds
+        run: |
+          git clone --depth=1 --single-branch --branch "${{ github.event.inputs.lede_branch }}" \
+            "${{ github.event.inputs.lede_repo }}" wrt
+          cd wrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Reconstruct, diffconfig, subtract & validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$PWD/wrt"
+          CFG="$GITHUB_WORKSPACE/Config"
+          SRC="$CFG/${CONFIG_NAME}.txt"
+
+          [ -f "$SRC" ] || { echo "::error::找不到 $SRC"; exit 1; }
+          ORIG_LINES=$(wc -l < "$SRC")
+          echo "原始 $CONFIG_NAME.txt 行数: $ORIG_LINES"
+
+          # ---------- 1) FULL：原 X86 + GENERAL + Settings -> 完整 .config ----------
+          cat "$SRC" "$CFG/GENERAL.txt" > .config
+          "$GITHUB_WORKSPACE/Scripts/Settings.sh"
+          make defconfig
+          cp .config /tmp/FULL.config
+          mkdir -p tmp
+          ./scripts/diffconfig.sh > /tmp/FULL.diff
+
+          # ---------- 2) BASE：仅 GENERAL + Settings（空 X86）-> 基线种子 ----------
+          cat "$CFG/GENERAL.txt" > .config
+          "$GITHUB_WORKSPACE/Scripts/Settings.sh"
+          make defconfig
+          ./scripts/diffconfig.sh > /tmp/BASE.diff
+
+          # ---------- 3) 整机最小种子 减去 基线 -> 只属于 X86 的最小集 ----------
+          grep -vxF -f /tmp/BASE.diff /tmp/FULL.diff > /tmp/X86.mini
+          NEW_LINES=$(wc -l < /tmp/X86.mini)
+          echo "缩减后最小种子行数: $NEW_LINES"
+          echo "FULL.diff 行数: $(wc -l < /tmp/FULL.diff) | BASE.diff 行数: $(wc -l < /tmp/BASE.diff)"
+
+          # ---------- 4) 校验：用最小种子重建并逐字节比对 ----------
+          cat /tmp/X86.mini "$CFG/GENERAL.txt" > .config
+          "$GITHUB_WORKSPACE/Scripts/Settings.sh"
+          make defconfig
+          if ! cmp -s .config /tmp/FULL.config; then
+            echo "::error::校验失败：缩减后 make defconfig 结果与原配置不一致，已终止，未覆盖文件。"
+            diff -u /tmp/FULL.config .config | head -60 || true
+            exit 1
+          fi
+          echo "::notice::校验通过：缩减后 make defconfig 与原配置逐字节一致。"
+
+          # ---------- 5) 覆盖原文件（校验通过后才写）----------
+          cp /tmp/X86.mini "$SRC"
+          cp /tmp/X86.mini "/tmp/${CONFIG_NAME}.mini.txt"
+          echo "覆盖 $SRC 完成（原 $ORIG_LINES 行 -> $NEW_LINES 行）"
+
+      - name: Upload minimized config
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ github.event.inputs.config_name }}-minimized
+          path: /tmp/${{ github.event.inputs.config_name }}.mini.txt
+          if-no-files-found: warn
+
