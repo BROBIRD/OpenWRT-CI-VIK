@@ -72,4 +72,4 @@ jobs:
       #仅输出配置文件
       WRT_TEST: ${{inputs.TEST || false}}
       #是否使用SSH调试
-      WRT_SSH: ${{inputs.SSH}}
+      WRT_SSH: ${{inputs.SSH || false}}
