@@ -75,8 +75,6 @@ jobs:
     steps:  
       - name: Machine Information
         run: |
-          cd ./wrt/
-
           echo "======================="
           lscpu | grep -E "name|Core|Thread"
           echo "======================="
