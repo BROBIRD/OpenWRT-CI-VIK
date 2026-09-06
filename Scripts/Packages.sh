@@ -175,7 +175,7 @@ $GITHUB_WORKSPACE/Scripts/gh-down.sh https://github.com/fw876/helloworld/tree/ma
 
 sed -i 's/wget-any/wget/g' $GITHUB_WORKSPACE/wrt/package/luci-theme-argon/Makefile
 
-wget -O $GITHUB_WORKSPACE/wrt/feeds/packages/net/fail2ban/patches/002-remove-setup-py-test_suite.patch https://gist.github.com/BROBIRD/5ce7782915a34442aaa9130f17952ad0/raw/353eaf0b4fede4c5e6074a5f1e3da73e205edd0a/002-remove-setup-py-test_suite.patch
+wget -O $GITHUB_WORKSPACE/wrt/feeds/packages/net/fail2ban/patches/002-remove-setup-py-test_suite.patch https://gist.githubusercontent.com/BROBIRD/5ce7782915a34442aaa9130f17952ad0/raw/002-remove-setup-py-test_suite.patch
 
 
 #更新软件包版本
