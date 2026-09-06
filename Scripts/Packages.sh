@@ -80,7 +80,7 @@ UPDATE_PACKAGE "mosdns" "sbwml/luci-app-mosdns" "v5" "" "v2dat"
 UPDATE_PACKAGE "luci-app-adguardhome" "stevenjoezhang/luci-app-adguardhome" "master"
 UPDATE_PACKAGE "luci-app-argon-config" "jerrykuku/luci-app-argon-config" "master"
 
-
+UPDATE_PACKAGE "naiveproxy" "sbwml/openwrt_helloworld" "v5" "" "naiveproxy"
 
 git clone https://github.com/sbwml/openwrt_helloworld.git $GITHUB_WORKSPACE/wrt/package/sbwml_helloworld
 
@@ -107,7 +107,7 @@ sed -i 's/ubus_parallel_req 2/ubus_parallel_req 6/g' $GITHUB_WORKSPACE/wrt/feeds
 sed -i '/ubus_parallel_req/a\        ubus_script_timeout 600;' $GITHUB_WORKSPACE/wrt/feeds/packages/net/nginx/files-luci-support/60_nginx-luci-support
 
 rm -rf $GITHUB_WORKSPACE/wrt/package/system/procd
-$GITHUB_WORKSPACE/Scripts/gh-down.sh https://github.com/immortalwrt/immortalwrt/tree/master/package/system/procd $GITHUB_WORKSPACE/wrt/package/system/procd
+"$GITHUB_WORKSPACE/Scripts/gh-down.sh" https://github.com/immortalwrt/immortalwrt/tree/master/package/system/procd $GITHUB_WORKSPACE/wrt/package/system/procd
 
 # openssl hwrng
 sed -i "/-openwrt/iOPENSSL_OPTIONS += enable-ktls '-DDEVRANDOM=\"\\\\\"/dev/urandom\\\\\"\"\'\n" $GITHUB_WORKSPACE/wrt/package/libs/openssl/Makefile
