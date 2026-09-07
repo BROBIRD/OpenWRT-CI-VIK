@@ -217,8 +217,8 @@ jobs:
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
-      - name: Start SSH via tmate
-        uses: P3TERX/ssh2actions@main
+      - name: Start SSH via upterm
+        uses: owenthereal/action-upterm@v1
         if: (env.WRT_SSH == 'true' && env.WRT_SSH != 'false') || contains(github.event.action, 'ssh')
 
       - name: Download Packages
