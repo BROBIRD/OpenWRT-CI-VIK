@@ -80,7 +80,11 @@ UPDATE_PACKAGE "mosdns" "sbwml/luci-app-mosdns" "v5" "" "v2dat"
 UPDATE_PACKAGE "luci-app-adguardhome" "stevenjoezhang/luci-app-adguardhome" "master"
 UPDATE_PACKAGE "luci-app-argon-config" "jerrykuku/luci-app-argon-config" "master"
 
-UPDATE_PACKAGE "naiveproxy" "sbwml/openwrt_helloworld" "v5" "" "naiveproxy"
+# UPDATE_PACKAGE "naiveproxy" "sbwml/openwrt_helloworld" "v5" "" "naiveproxy"
+
+rm -rf $GITHUB_WORKSPACE/wrt/feeds/helloworld/naiveproxy
+UPDATE_PACKAGE "naiveproxy" "sbwml/openwrt_helloworld" "v5" "pkg"
+
 
 # patch source
 curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/generic-25.12/0001-tools-add-upx-tools.patch | patch -p1
