@@ -17,7 +17,7 @@ UPDATE_PACKAGE() {
 	for NAME in "${PKG_LIST[@]}"; do
 		# 查找匹配的目录
 		echo "Search directory: $NAME"
-		local FOUND_DIRS=$(find ../feeds/luci/ ../feeds/packages/ -maxdepth 3 -type d -iname "*$NAME*" 2>/dev/null)
+		local FOUND_DIRS=$(find ../feeds/luci/ ../feeds/packages/ ../feeds/helloworld/ -maxdepth 3 -type d -iname "*$NAME*" 2>/dev/null)
 
 		# 删除找到的目录
 		if [ -n "$FOUND_DIRS" ]; then
@@ -26,7 +26,7 @@ UPDATE_PACKAGE() {
 				echo "Delete directory: $DIR"
 			done <<< "$FOUND_DIRS"
 		else
-			echo "Not fonud directory: $NAME"
+			echo "Not found directory: $NAME"
 		fi
 	done
 
@@ -82,8 +82,9 @@ UPDATE_PACKAGE "luci-app-argon-config" "jerrykuku/luci-app-argon-config" "master
 
 # UPDATE_PACKAGE "naiveproxy" "sbwml/openwrt_helloworld" "v5" "" "naiveproxy"
 
-rm -rf $GITHUB_WORKSPACE/wrt/feeds/helloworld/naiveproxy
+# rm -rf $GITHUB_WORKSPACE/wrt/feeds/helloworld/naiveproxy
 UPDATE_PACKAGE "naiveproxy" "sbwml/openwrt_helloworld" "v5" "pkg"
+rm -rf $GITHUB_WORKSPACE/wrt/feeds/helloworld/naiveproxy
 
 
 # patch source
