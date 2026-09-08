@@ -44,6 +44,10 @@ on:
         required: false
         default: false
         type: boolean
+      WRT_SSH:
+        required: false
+        default: false
+        type: boolean
 
 env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -59,6 +63,7 @@ env:
   WRT_SOURCE: ${{inputs.WRT_SOURCE}}
   WRT_PACKAGE: ${{inputs.WRT_PACKAGE}}
   WRT_TEST: ${{inputs.WRT_TEST}}
+  WRT_SSH: ${{inputs.WRT_SSH}}
 
 jobs:
   core:
@@ -67,7 +72,17 @@ jobs:
     outputs:
       cache_prefix: ${{steps.initialize-values.outputs.cache_prefix}}
       cache_key: ${{steps.clone-code.outputs.cache_key}}
-    steps:
+    steps:  
+      - name: Machine Information
+        run: |
+          echo "======================="
+          lscpu | grep -E "name|Core|Thread"
+          echo "======================="
+          df -h
+          echo "======================="
+          du -h --max-depth=1
+          echo "======================="
+
       - name: Checkout Projects
         uses: actions/checkout@main
 
@@ -81,8 +96,10 @@ jobs:
           sudo -E apt -yqq autoremove --purge
           sudo -E apt -yqq autoclean
           sudo -E apt -yqq clean
+          sudo rm -rf /usr/local/lib/android* /etc/docker* /etc/firefox* /etc/mysql* /etc/php* /opt/google* /usr/share/dotnet* /usr/share/google* /usr/share/moby* /usr/share/mysql* /usr/share/php*
           sudo -E apt -yqq install dos2unix libfuse-dev
           sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+          sudo -E apt -yqq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext genisoimage git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5-dev libpython3-dev libreadline-dev libssl-dev libtool llvm lrzsz libnsl-dev ninja-build p7zip p7zip-full patch pkgconf python3 python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools subversion swig texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd xz-utils zlib1g-dev
           sudo -E systemctl daemon-reload
           sudo -E timedatectl set-timezone "Asia/Shanghai"
 
@@ -90,25 +107,40 @@ jobs:
           sudo chown $USER:$USER /mnt/build_wrt
           sudo ln -s /mnt/build_wrt $GITHUB_WORKSPACE/wrt
 
+      - name: Run sccache-cache
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: "sccache"
+        uses: mozilla-actions/sccache-action@v0.0.11
+
+      - name: Zero sccache stats
+        run: sccache --zero-stats || true
+
+      - name: Export sccache env for following steps
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_DIR=$HOME/.cache/sccache" >> $GITHUB_ENV
+          echo "SCCACHE_CACHE_SIZE=10G" >> $GITHUB_ENV
+
       - name: Initialization Values
         id: initialize-values
         run: |
           WRT_TARGET=$(grep -m 1 -oP '^CONFIG_TARGET_\K[\w]+(?=\=y)' "./Config/$WRT_CONFIG.txt")
           WRT_SUBTARGET=$(grep -m 1 -oP "^CONFIG_TARGET_${WRT_TARGET}_\K[\w]+(?=\=y)" "./Config/$WRT_CONFIG.txt")
-          WRT_CACHE_SOURCE=${WRT_SOURCE//\//-}
-          WRT_CACHE_BRANCH=${WRT_BRANCH//\//-}
+          WRT_CACHE_SOURCE=${WRT_SOURCE//\//\-}
+          WRT_CACHE_BRANCH=${WRT_BRANCH//\//\-}
           WRT_CACHE_TARGET="$WRT_TARGET-$WRT_SUBTARGET"
           WRT_CACHE_PREFIX="wrt-$WRT_CACHE_SOURCE-$WRT_CACHE_BRANCH-$WRT_CACHE_TARGET"
 
           {
             echo "WRT_INFO=${WRT_SOURCE%%/*}"
-            echo "WRT_DATE=$(TZ=UTC-8 date +"%y.%m.%d-%H.%M.%S")"
+            echo "WRT_DATE=$(TZ=UTC-8 date +%y.%m.%d-%H.%M.%S)"
             echo "WRT_MARK=${GITHUB_REPOSITORY%%/*}"
             echo "WRT_TARGET=$WRT_TARGET"
             echo "WRT_SUBTARGET=$WRT_SUBTARGET"
             echo "WRT_CACHE_TARGET=$WRT_CACHE_TARGET"
             echo "WRT_CACHE_PREFIX=$WRT_CACHE_PREFIX"
-            echo "WRT_WIFI=wifi-yes"
+            echo "WRT_WIFI=wifi-no"
             echo "WRT_KVER=none"
             echo "WRT_LIST=none"
           } >> "$GITHUB_ENV"
@@ -185,6 +217,10 @@ jobs:
 
           make defconfig -j$(nproc) && make clean -j$(nproc)
 
+      - name: Start SSH via upterm
+        uses: owenthereal/action-upterm@v1
+        if: (env.WRT_SSH == 'true' && env.WRT_SSH != 'false') || contains(github.event.action, 'ssh')
+
       - name: Download Packages
         if: ${{ !inputs.WRT_TEST }}
         run: |
@@ -195,6 +231,7 @@ jobs:
       - name: Compile Firmware
         if: ${{ !inputs.WRT_TEST }}
         run: |
+          echo -e "$(nproc) thread compile"
           cd ./wrt/
 
           make -j$(nproc) || make -j1 V=s
@@ -209,17 +246,14 @@ jobs:
             ./wrt/staging_dir/host*
             ./wrt/staging_dir/tool*
 
-      - name: Machine Information
+      - name: Show sccache stats
+        if: always()
         run: |
-          cd ./wrt/
-
-          echo "======================="
-          lscpu | grep -E "name|Core|Thread"
-          echo "======================="
-          df -h
-          echo "======================="
-          du -h --max-depth=1
-          echo "======================="
+          echo "---- sccache stats ----"
+          sccache --show-stats || true
+          echo "---- sccache cache dir ----"
+          du -sh $SCCACHE_DIR || true
+          ls -la $SCCACHE_DIR || true
 
       - name: Package Firmware
         run: |
