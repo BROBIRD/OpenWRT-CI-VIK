@@ -253,6 +253,16 @@ jobs:
 
             find ./bin/targets/ -type f -exec mv -f {} ./upload/ \;
 
+            mkdir -p ./upload/ && \
+            awk -F= '/^CONFIG_PACKAGE_/ && ($2=="m" || $2=="\"m\"") {sub(/^CONFIG_PACKAGE_/,"",$1); print $1}' ./.config \
+            | while IFS= read -r pkg; do
+                find ./bin -maxdepth 3 -type f -name "${pkg}_*.ipk" -print0 2>/dev/null \
+                | while IFS= read -r -d '' ipk; do
+                  echo "Moving: $ipk"
+                  mv -- "$ipk" ./upload/ || echo "Warning: failed to move $ipk" >&2
+                done
+            done
+
             make clean -j$(nproc)
           fi
 
