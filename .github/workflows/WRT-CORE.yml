@@ -253,14 +253,29 @@ jobs:
 
             find ./bin/targets/ -type f -exec mv -f {} ./upload/ \;
 
-            mkdir -p ./upload/ && \
-            awk -F= '/^CONFIG_PACKAGE_/ && ($2=="m" || $2=="\"m\"") {sub(/^CONFIG_PACKAGE_/,"",$1); print $1}' ./.config \
-            | while IFS= read -r pkg; do
-                find ./bin -maxdepth 3 -type f -name "${pkg}_*.ipk" -print0 2>/dev/null \
-                | while IFS= read -r -d '' ipk; do
-                  echo "Moving: $ipk"
-                  mv -- "$ipk" ./upload/ || echo "Warning: failed to move $ipk" >&2
-                done
+            mkdir -p ./upload/
+            
+            pkg_list=$(awk -F= '/^CONFIG_PACKAGE_/ && ($2=="m" || $2=="\"m\"" || $2=="y" || $2=="\"y\"") {sub(/^CONFIG_PACKAGE_/,"",$1); print $1}' ./.config)
+
+            
+            > /tmp/sel_ipks
+            for pkg in $pkg_list; do
+              find ./bin -type f -name "${pkg}_*.ipk" -print0 2>/dev/null >> /tmp/sel_ipks
+            done
+
+            xargs -0 -n1 dirname < /tmp/sel_ipks 2>/dev/null | sort -u | while IFS= read -r ipk_dir; do
+                rel_dir="${ipk_dir#./bin/}"
+                [ -z "$rel_dir" ] && continue
+                > /tmp/ipk_list
+                find "$ipk_dir" -maxdepth 1 -type f -name "*.ipk" -print0 2>/dev/null \
+                | while IFS= read -r -d '' f; do
+                    grep -qxFz -- "$f" /tmp/sel_ipks 2>/dev/null && basename "$f" >> /tmp/ipk_list
+                  done
+                [ -s /tmp/ipk_list ] || continue
+                tar_name=$(echo "$rel_dir" | tr '/' '-')
+                echo "Packaging: $ipk_dir -> ${tar_name}.tar.gz"
+                tar -czf "./upload/${tar_name}.tar.gz" -C "$ipk_dir" -T /tmp/ipk_list
+                ls -lh "./upload/${tar_name}.tar.gz"
             done
 
             make clean -j$(nproc)
