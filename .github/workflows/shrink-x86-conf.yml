@@ -91,6 +91,10 @@ jobs:
           cd "$WRT_DIR"
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+      
+      - name: Check Scripts
+        run: |
+          find ./ -maxdepth 3 -type f -iregex ".*\(txt\|sh\)$" -exec dos2unix {} \; -exec chmod +x {} \;
 
       # 准备源码树：Packages.sh + Handles.sh 只改源码树（包目录/Makefile/内核补丁），不改 .config，
       # 且内含多次 git clone，不能重复跑 —— 故只在此准备一次。
