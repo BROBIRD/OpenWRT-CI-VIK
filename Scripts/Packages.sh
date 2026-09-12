@@ -58,7 +58,7 @@ UPDATE_PACKAGE "zerotier" "sbwml/feeds_packages_net_zerotier" "main"
 # UPDATE_PACKAGE "momo" "nikkinikki-org/OpenWrt-momo" "main"
 # UPDATE_PACKAGE "nikki" "nikkinikki-org/OpenWrt-nikki" "main"
 # UPDATE_PACKAGE "openclash" "vernesong/OpenClash" "dev" "pkg"
-UPDATE_PACKAGE "passwall" "Openwrt-Passwall/openwrt-passwall" "main" "pkg"
+UPDATE_PACKAGE "passwall" "Openwrt-Passwall/openwrt-passwall" "main" "passwall luci-app-passwall"
 # UPDATE_PACKAGE "passwall2" "Openwrt-Passwall/openwrt-passwall2" "main" "pkg"
 
 # UPDATE_PACKAGE "luci-app-tailscale" "asvow/luci-app-tailscale" "main"
@@ -153,17 +153,6 @@ pushd $GITHUB_WORKSPACE/wrt/feeds/luci
     curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0008-luci-mod-status-dmesg-add-ANSI-terminal-color-and-re.patch | patch -p1
 popd
 
-# luci-mod extra
-pushd $GITHUB_WORKSPACE/wrt/feeds/luci
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0001-luci-mod-system-add-modal-overlay-dialog-to-reboot.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0002-luci-mod-status-displays-actual-process-memory-usage.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0003-luci-mod-status-storage-index-applicable-only-to-val.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0004-luci-mod-status-firewall-disable-legacy-firewall-rul.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0005-luci-mod-system-add-refresh-interval-setting.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0006-luci-mod-system-mounts-add-docker-directory-mount-po.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0007-luci-mod-system-add-ucitrack-luci-mod-system-zram.js.patch | patch -p1
-    curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/luci/0008-luci-mod-status-dmesg-add-ANSI-terminal-color-and-re.patch | patch -p1
-popd
 
 # Luci diagnostics.js
 sed -i "s/openwrt.org/www.qq.com/g" $GITHUB_WORKSPACE/wrt/feeds/luci/modules/luci-mod-network/htdocs/luci-static/resources/view/network/diagnostics.js
@@ -191,7 +180,7 @@ sed -i "s/-O3/-Ofast/g" $GITHUB_WORKSPACE/wrt/package/libs/openssl/Makefile
 # sed -i "s/-O3/-Os/g" $GITHUB_WORKSPACE/wrt/package/libs/openssl/Makefile
 
 # nghttp3
-$GITHUB_WORKSPACE/Scripts/gh-down.sh https://github.com/immortalwrt/packages/tree/master/libs/nghttp3 $GITHUB_WORKSPACE/wrt/package/libs/nghttp3
+"$GITHUB_WORKSPACE/Scripts/gh-down.sh" https://github.com/immortalwrt/packages/tree/master/libs/nghttp3 $GITHUB_WORKSPACE/wrt/package/libs/nghttp3
 
 # curl - http3/quic
 rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/curl
