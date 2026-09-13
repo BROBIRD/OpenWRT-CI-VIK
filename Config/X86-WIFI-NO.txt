@@ -141,9 +141,9 @@ CONFIG_OPENSSL_WITH_NPN=y
 # CONFIG_OPENSSL_WITH_WHIRLPOOL is not set
 CONFIG_PACKAGE_6in4=y
 CONFIG_PACKAGE_acme=y
-CONFIG_PACKAGE_acme-deploy=y
-CONFIG_PACKAGE_acme-dnsapi=y
-CONFIG_PACKAGE_acme-notify=y
+CONFIG_PACKAGE_acme-acmesh=y
+CONFIG_PACKAGE_acme-acmesh-dnsapi=y
+CONFIG_PACKAGE_acme-common=y
 CONFIG_PACKAGE_adblock=y
 # CONFIG_PACKAGE_amdgpu-firmware is not set
 # CONFIG_PACKAGE_autosamba is not set

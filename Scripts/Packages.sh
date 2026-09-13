@@ -243,6 +243,11 @@ $GITHUB_WORKSPACE/Scripts/gh-down.sh https://github.com/fw876/helloworld/tree/ma
 rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/zerotier
 git clone --single-branch --depth=1 https://github.com/sbwml/feeds_packages_net_zerotier.git $GITHUB_WORKSPACE/wrt/feeds/packages/net/zerotier
 
+# acme
+rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/acme
+"$GITHUB_WORKSPACE/Scripts/gh-down.sh" https://github.com/immortalwrt/packages/tree/master/net/acme-acmesh $GITHUB_WORKSPACE/wrt/package/net/acme-acmesh
+"$GITHUB_WORKSPACE/Scripts/gh-down.sh" https://github.com/immortalwrt/packages/tree/master/net/acme-common $GITHUB_WORKSPACE/wrt/package/net/acme-common
+
 sed -i 's/wget-any/wget/g' $GITHUB_WORKSPACE/wrt/package/luci-theme-argon/Makefile
 
 wget -O $GITHUB_WORKSPACE/wrt/feeds/packages/net/fail2ban/patches/002-remove-setup-py-test_suite.patch https://gist.githubusercontent.com/BROBIRD/5ce7782915a34442aaa9130f17952ad0/raw/002-remove-setup-py-test_suite.patch
