@@ -234,49 +234,76 @@ jobs:
 
       - name: Package Firmware
         run: |
-          cd ./wrt/ && mkdir ./upload/
+          cd ./wrt/
+          mkdir -p ./upload/
 
-          cp -f ./.config ./upload/Config-"$WRT_CONFIG"-"$WRT_INFO"-"$WRT_BRANCH"-"$WRT_DATE".txt
+          cp -f ./.config "./upload/Config-${WRT_CONFIG}-${WRT_INFO}-${WRT_BRANCH}-${WRT_DATE}.txt"
 
           if [[ "$WRT_TEST" != 'true' ]]; then
             echo "WRT_KVER=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^kernel - \K[\d\.]+' {} \;)" >> $GITHUB_ENV
             echo "WRT_LIST=$(find ./bin/targets/ -type f -name "*.manifest" -exec grep -oP '^luci-(app|theme)[^ ]*' {} \; | tr '\n' ' ')" >> $GITHUB_ENV
 
-            find ./bin/targets/ -iregex ".*\(buildinfo\|json\|sha256sums\|packages\)$" -exec rm -rf {} +
 
-            for FILE in $(find ./bin/targets/ -type f -iname "*$WRT_TARGET*") ; do
-              EXT=$(basename $FILE | cut -d '.' -f 2-)
-              NAME=$(basename $FILE | cut -d '.' -f 1 | grep -io "\($WRT_TARGET\).*")
-              NEW_FILE="$NAME"-"$WRT_INFO"-"$WRT_BRANCH"-"$WRT_WIFI"-"$WRT_DATE"."$EXT"
-              mv -f $FILE ./upload/$NEW_FILE
-            done
+            find ./bin/targets/ -iregex ".*\(buildinfo\|json\|sha256sums\)$" -exec rm -rf {} +
 
-            find ./bin/targets/ -type f -exec mv -f {} ./upload/ \;
+            while IFS= read -r -d '' FILE; do
+              base=$(basename "$FILE")
+              EXT=${base#*.}; [ "$EXT" = "$base" ] && EXT=""
+              stem=${base%%.*}
+              NAME=$(printf '%s' "$stem" | grep -io "\($WRT_TARGET\).*" || printf '%s' "$stem")
+              [ -n "$NAME" ] || NAME="$stem"
+              PREFIX="${WRT_INFO}-${WRT_BRANCH}-${WRT_WIFI}-${WRT_DATE}"
+              if [ -n "$EXT" ]; then
+                NEW_FILE="${NAME}-${PREFIX}.${EXT}"
+              else
+                NEW_FILE="${NAME}-${PREFIX}"
+              fi
+              mv -f "$FILE" "./upload/$NEW_FILE"
+            done < <(find ./bin/targets/ -type f -iwholename "*$WRT_TARGET*" -not -path "*/packages/*" -print0)
 
-            mkdir -p ./upload/
-            
-            pkg_list=$(awk -F= '/^CONFIG_PACKAGE_/ && ($2=="m" || $2=="\"m\"" || $2=="y" || $2=="\"y\"") {sub(/^CONFIG_PACKAGE_/,"",$1); print $1}' ./.config)
+            find ./bin/targets/ -type f -not -path "*/packages/*" -exec mv -f {} ./upload/ \;
 
-            
-            > /tmp/sel_ipks
-            for pkg in $pkg_list; do
-              find ./bin -type f -name "${pkg}_*.ipk" -print0 2>/dev/null >> /tmp/sel_ipks
-            done
+            OUT_DIR="./upload"
+            mkdir -p "$OUT_DIR"
 
-            xargs -0 -n1 dirname < /tmp/sel_ipks 2>/dev/null | sort -u | while IFS= read -r ipk_dir; do
-                rel_dir="${ipk_dir#./bin/}"
-                [ -z "$rel_dir" ] && continue
-                > /tmp/ipk_list
-                find "$ipk_dir" -maxdepth 1 -type f -name "*.ipk" -print0 2>/dev/null \
-                | while IFS= read -r -d '' f; do
-                    grep -qxFz -- "$f" /tmp/sel_ipks 2>/dev/null && basename "$f" >> /tmp/ipk_list
-                  done
-                [ -s /tmp/ipk_list ] || continue
-                tar_name=$(echo "$rel_dir" | tr '/' '-')
-                echo "Packaging: $ipk_dir -> ${tar_name}.tar.gz"
-                tar -czf "./upload/${tar_name}.tar.gz" -C "$ipk_dir" -T /tmp/ipk_list
-                ls -lh "./upload/${tar_name}.tar.gz"
-            done
+            awk -F= '/^CONFIG_PACKAGE_/ {
+                    v = $2; gsub(/"/, "", v)
+                    if (v == "y" || v == "m") { sub(/^CONFIG_PACKAGE_/, "", $1); print $1 }
+                }' ./.config | sort -u > /tmp/sel_pkgs
+
+            find ./bin -type f -name '*.ipk' -printf '%f\t%p\n' > /tmp/all_ipks
+
+            awk -F'\t' 'NR==FNR { sel[$0]=1; next }
+                { p = index($1, "_")
+                  if (!p) next
+                  name = substr($1, 1, p-1)
+                  if (name ~ /^kernel/) next
+                  if (name in sel) print $2 }
+            ' /tmp/sel_pkgs /tmp/all_ipks | sort -u > /tmp/sel_ipks
+
+
+            if [ -s /tmp/sel_ipks ]; then
+              awk -F/ '{ n=NF; d=$1; for (i=2;i<n;i++) d=d"/"$i; print d"\t"$n }' /tmp/sel_ipks \
+                  | sort -u > /tmp/sel_pairs
+              cut -f1 /tmp/sel_pairs | sort -u > /tmp/sel_dirs
+
+              while IFS= read -r ipk_dir; do
+                  rel="${ipk_dir#./bin}"; rel="${rel#/}"
+                  [ -n "$rel" ] || rel="root"
+                  tar_name=$(printf '%s' "$rel" | tr '/' '-')
+
+                  awk -F'\t' -v d="$ipk_dir" '$1==d {print $2}' /tmp/sel_pairs > /tmp/ipk_list
+                  [ -s /tmp/ipk_list ] || continue
+
+                  cnt=$(wc -l < /tmp/ipk_list)
+                  echo "Packaging: $ipk_dir -> ${tar_name}.tar.gz (${cnt} ipk)"
+                  tar -czf "${OUT_DIR}/${tar_name}.tar.gz" -C "$ipk_dir" \
+                      --verbatim-files-from -T /tmp/ipk_list
+                  ls -lh "${OUT_DIR}/${tar_name}.tar.gz"
+              done < /tmp/sel_dirs
+            else
+              echo "::warning::未匹配到任何已选中的 ipk，跳过打包"
+            fi
 
             make clean -j$(nproc)
           fi

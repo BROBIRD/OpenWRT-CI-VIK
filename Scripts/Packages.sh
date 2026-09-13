@@ -116,6 +116,8 @@ sed -i 's/+uhttpd /+luci-nginx /g' $GITHUB_WORKSPACE/wrt/feeds/luci/collections/
 sed -i "s/+luci /+luci-nginx /g" $GITHUB_WORKSPACE/wrt/feeds/luci/collections/luci-ssl-openssl/Makefile
 sed -i "s/+luci /+luci-nginx /g" $GITHUB_WORKSPACE/wrt/feeds/luci/collections/luci-ssl/Makefile
 
+rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/{xray-core,chinadns-ng}
+
 # nginx - latest version
 rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/nginx
 git clone --single-branch --depth=1 https://github.com/sbwml/feeds_packages_net_nginx -b openwrt-25.12 $GITHUB_WORKSPACE/wrt/feeds/packages/net/nginx
