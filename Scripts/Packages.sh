@@ -253,6 +253,9 @@ sed -i 's/wget-any/wget/g' $GITHUB_WORKSPACE/wrt/package/luci-theme-argon/Makefi
 
 wget -O $GITHUB_WORKSPACE/wrt/feeds/packages/net/fail2ban/patches/002-remove-setup-py-test_suite.patch https://gist.githubusercontent.com/BROBIRD/5ce7782915a34442aaa9130f17952ad0/raw/002-remove-setup-py-test_suite.patch
 
+#fix rust PKG_HASH
+wget -L -O $GITHUB_WORKSPACE/wrt/feeds/packages/lang/rust/patches/003-fix-pkg-hash.patch https://github.com/coolsnowwolf/packages/pull/1154.patch
+
 # # shortcut-fe
 # curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/kernel-6.18/net/601-netfilter-export-udp_get_timeouts-function.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/601-netfilter-export-udp_get_timeouts-function.patch
 # curl -s https://github.com/sbwml/r4s_build_script/raw/f8d3e0306022ac9ca6101421c93d0feb32a21af1/openwrt/patch/kernel-6.18/net/952-net-conntrack-events-support-multiple-registrant.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/952-net-conntrack-events-support-multiple-registrant.patch
