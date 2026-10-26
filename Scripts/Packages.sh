@@ -260,7 +260,7 @@ wget -L -O $GITHUB_WORKSPACE/wrt/feeds/packages/lang/rust/patches/003-fix-pkg-ha
 curl -s https://github.com/sbwml/r4s_build_script/raw/6c3527bcd095e30632968e1ae2b602736aac6084/openwrt/patch/kernel-6.18/net/601-netfilter-export-udp_get_timeouts-function.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/601-netfilter-export-udp_get_timeouts-function.patch
 curl -s https://github.com/sbwml/r4s_build_script/raw/6c3527bcd095e30632968e1ae2b602736aac6084/openwrt/patch/kernel-6.18/net/952-net-conntrack-events-support-multiple-registrant.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/952-net-conntrack-events-support-multiple-registrant.patch
 curl -s https://github.com/sbwml/r4s_build_script/raw/6c3527bcd095e30632968e1ae2b602736aac6084/openwrt/patch/kernel-6.18/net/953-net-patch-linux-kernel-to-support-shortcut-fe.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/953-net-patch-linux-kernel-to-support-shortcut-fe.patch
-curl -s https://github.com/sbwml/r4s_build_script/blob/6c3527bcd095e30632968e1ae2b602736aac6084/openwrt/patch/kernel-6.18/net/983-add-bcm-fullcone-nft_masq-support.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/983-add-bcm-fullcone-nft_masq-support.patch
+curl -s https://github.com/sbwml/r4s_build_script/raw/6c3527bcd095e30632968e1ae2b602736aac6084/openwrt/patch/kernel-6.18/net/983-add-bcm-fullcone-nft_masq-support.patch > $GITHUB_WORKSPACE/wrt/target/linux/generic/hack-6.18/983-add-bcm-fullcone-nft_masq-support.patch
 
 #更新软件包版本
 UPDATE_VERSION() {
