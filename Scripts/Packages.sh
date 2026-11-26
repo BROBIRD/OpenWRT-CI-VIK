@@ -116,6 +116,7 @@ sed -i 's/+uhttpd /+luci-nginx /g' $GITHUB_WORKSPACE/wrt/feeds/luci/collections/
 sed -i "s/+luci /+luci-nginx /g" $GITHUB_WORKSPACE/wrt/feeds/luci/collections/luci-ssl-openssl/Makefile
 sed -i "s/+luci /+luci-nginx /g" $GITHUB_WORKSPACE/wrt/feeds/luci/collections/luci-ssl/Makefile
 
+rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/{xray-core,chinadns-ng}
 rm -rf $GITHUB_WORKSPACE/wrt/package/feeds/packages/net/{xray-core,chinadns-ng}
 rm -rf $GITHUB_WORKSPACE/wrt/package/sbwml_helloworld/xray-core
 
