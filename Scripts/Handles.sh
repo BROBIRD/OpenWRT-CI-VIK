@@ -252,3 +252,93 @@ fi
 # 		echo "rust fix failed; continuing!"
 # 	fi
 # fi
+
+
+
+#x86:按MAC绑定WAN/LAN,免疫ethN枚举顺序变化
+if [ "${WRT_TARGET:-}" = "x86" ]; then
+	echo " "
+	UCD_DIR="$PKG_PATH/base-files/files/etc/uci-defaults"
+	mkdir -p "$UCD_DIR"
+	cat > "$UCD_DIR/99-fix-netorder" <<'UCD'
+#!/bin/sh
+# 按MAC绑定WAN/LAN,与ethN枚举顺序无关
+# WAN = 板载网卡   7c:d3:0a:13:30:01 (lspci 07:00.0, HP)
+# LAN = PCIE扩展卡 00:e0:4c:68:8a:51-54 (lspci 03-06:00.0)
+
+WAN_MAC="7c:d3:0a:13:30:01"
+NUM_ETH="5"
+
+# r8168是kmod,可能在本脚本之后才加载;最多等30秒
+tries=0
+while [ "$(ls /sys/class/net 2>/dev/null | grep -c '^eth')" -lt "$NUM_ETH" ]; do
+	tries=$((tries + 1))
+	[ "$tries" -gt 60 ] && break
+	sleep 0.5
+done
+
+# 按目标MAC找WAN口,其余eth口全部归入LAN
+wan_dev=""
+lan_ports=""
+for dev in $(ls /sys/class/net 2>/dev/null | grep '^eth'); do
+	mac="$(cat /sys/class/net/$dev/address 2>/dev/null)"
+	if [ "$mac" = "$WAN_MAC" ]; then
+		wan_dev="$dev"
+	else
+		lan_ports="$lan_ports $dev"
+	fi
+done
+
+# 找不到板载网卡(换机器/换网卡) => 不动配置,安全回退
+[ -n "$wan_dev" ] || { logger -t netorder "WAN MAC $WAN_MAC not found, skip"; exit 0; }
+
+if [ -n "$(uci -q get network.wan)" ]; then
+	# 已有wan(保留配置升级):只修正设备引用,不动协议/拨号账号
+	uci set network.wan.device="$wan_dev"
+	if [ "$(uci -q get network.wan.proto)" = "pppoe" ]; then
+		uci set network.wan6.device="@wan"
+	elif [ -n "$(uci -q get network.wan6)" ]; then
+		uci set network.wan6.device="$wan_dev"
+	fi
+else
+	# 全新安装:创建wan/wan6
+	uci -q batch <<-EOF
+		delete network.wan
+		delete network.wan6
+		set network.wan='interface'
+		set network.wan.device='$wan_dev'
+		set network.wan.proto='dhcp'
+		set network.wan6='interface'
+		set network.wan6.device='$wan_dev'
+		set network.wan6.proto='dhcpv6'
+	EOF
+	# 如需预置PPPoE,去掉注释填入账号(注意仓库是公开的,别提交真实宽带密码)
+	# uci set network.wan.proto='pppoe'
+	# uci set network.wan.username='your-pppoe-username'
+	# uci set network.wan.password='your-pppoe-password'
+	# uci set network.wan.ipv6='1'
+	# uci set network.wan6.device='@wan'
+fi
+
+# 就地重建LAN桥:全部非WAN的eth口(不动其他device段)
+idx=""
+i=0
+while uci -q get network.@device[$i].name >/dev/null 2>&1; do
+	[ "$(uci -q get network.@device[$i].name)" = "br-lan" ] && idx=$i
+	i=$((i+1))
+done
+if [ -z "$idx" ]; then
+	uci add network device
+	idx=-1
+fi
+uci -q set network.@device[$idx].name='br-lan'
+uci -q set network.@device[$idx].type='bridge'
+uci -q delete network.@device[$idx].ports
+for p in $lan_ports; do uci add_list network.@device[$idx].ports="$p"; done
+
+uci commit network
+logger -t netorder "WAN=$wan_dev LAN=br-lan($lan_ports)"
+UCD
+	chmod +x "$UCD_DIR/99-fix-netorder"
+	echo "x86 netorder uci-defaults installed!"
+fi
