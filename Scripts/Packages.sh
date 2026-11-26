@@ -116,7 +116,7 @@ sed -i 's/+uhttpd /+luci-nginx /g' $GITHUB_WORKSPACE/wrt/feeds/luci/collections/
 sed -i "s/+luci /+luci-nginx /g" $GITHUB_WORKSPACE/wrt/feeds/luci/collections/luci-ssl-openssl/Makefile
 sed -i "s/+luci /+luci-nginx /g" $GITHUB_WORKSPACE/wrt/feeds/luci/collections/luci-ssl/Makefile
 
-rm -rf $GITHUB_WORKSPACE/wrt/feeds/packages/net/{xray-core,chinadns-ng}
+rm -rf $GITHUB_WORKSPACE/wrt/package/feeds/packages/net/{xray-core,chinadns-ng}
 rm -rf $GITHUB_WORKSPACE/wrt/package/sbwml_helloworld/xray-core
 
 # nginx - latest version
@@ -234,7 +234,7 @@ git clone --single-branch --depth=1 https://github.com/sbwml/v2ray-geodata $GITH
 rm -rf $GITHUB_WORKSPACE/wrt/feeds/smpackage/luci-app-gost
 $GITHUB_WORKSPACE/Scripts/gh-down.sh https://github.com/kenzok8/openwrt-packages/tree/master/luci-app-gost $GITHUB_WORKSPACE/wrt/feeds/smpackage/luci-app-gost
 
-rm -rf $GITHUB_WORKSPACE/wrt/feeds/smpackage/{base-files,dnsmasq,firewall*,fullconenat,libnftnl,nftables,ppp,opkg,ucl,upx,vsftpd*,miniupnpd-iptables,wireless-regdb,tcping}
+rm -rf $GITHUB_WORKSPACE/wrt/package/feeds/smpackage/{base-files,dnsmasq,firewall*,fullconenat,libnftnl,nftables,ppp,opkg,ucl,upx,vsftpd*,miniupnpd-iptables,wireless-regdb,tcping}
 
 git clone --single-branch --depth=1 https://github.com/EasyTier/luci-app-easytier.git $GITHUB_WORKSPACE/wrt/package/extra/luci-app-easytier
 

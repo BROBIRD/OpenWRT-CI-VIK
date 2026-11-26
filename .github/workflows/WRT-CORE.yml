@@ -189,7 +189,8 @@ jobs:
           $GITHUB_WORKSPACE/Scripts/Handles.sh
 
           cd ..
-          ./scripts/feeds install -a
+          rm -rf tmp
+          make package/symlinks
 
       - name: Custom Settings
         run: |
