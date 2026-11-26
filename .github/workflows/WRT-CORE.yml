@@ -188,6 +188,8 @@ jobs:
           $GITHUB_WORKSPACE/Scripts/Packages.sh
           $GITHUB_WORKSPACE/Scripts/Handles.sh
 
+          ./scripts/feeds install -a
+
       - name: Custom Settings
         run: |
           cd ./wrt/
